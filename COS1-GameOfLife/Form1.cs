@@ -12,9 +12,10 @@ namespace COS1_GameOfLife
 {
     public partial class Form1 : Form
     {
+        Color numColor = Color.Red;
         // The universe array
-        bool[,] universe = new bool[20, 20];
-        bool[,] scratchPad = new bool[20, 20];
+        bool[,] universe = new bool[30, 30];
+        bool[,] scratchPad = new bool[30, 30];
 
         // Drawing colors
         Color gridColor = Color.Black;
@@ -90,6 +91,21 @@ namespace COS1_GameOfLife
             // Update status strip generations
             toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
 
+            // Update statues strip livingCells
+            int livingCells = 0;
+            for (int y = 0; y < scratchPad.GetLength(1); y++)
+            {
+                for (int x = 0; x < scratchPad.GetLength(0); x++)
+                {
+                    if(universe[x, y] == true)
+                    {
+                        livingCells++;
+                    }
+                }
+            }
+
+            toolStripStatusLabelLivingCells.Text = "Living Cells = " + livingCells.ToString();
+
             // Invalidate Graphics Panel
             graphicsPanel1.Invalidate();
         }
@@ -100,7 +116,11 @@ namespace COS1_GameOfLife
             NextGeneration();
         }
 
-        private void graphicsPanel1_Paint(object sender, PaintEventArgs e)
+        private void graphicsPanel2_Paint(object sender, PaintEventArgs e)
+        {
+               
+        }
+            private void graphicsPanel1_Paint(object sender, PaintEventArgs e)
         {
             // Calculate the width and height of each cell in pixels
             // CELL WIDTH = WINDOW WIDTH / NUMBER OF CELLS IN X
@@ -135,6 +155,20 @@ namespace COS1_GameOfLife
 
                     // Outline the cell with a pen
                     e.Graphics.DrawRectangle(gridPen, cellRect.X, cellRect.Y, cellRect.Width, cellRect.Height);
+
+
+                    if(neighborCountToolStripMenuItem.CheckState == CheckState.Checked)
+                    {
+                        StringFormat stringFormat = new StringFormat();
+                        stringFormat.Alignment = StringAlignment.Center;
+                        stringFormat.LineAlignment = StringAlignment.Center;
+
+                        int neighbors = CountNeighborsFinite(x, y);
+
+                        Brush numBrush = new SolidBrush(numColor);
+
+                        e.Graphics.DrawString(neighbors.ToString(), graphicsPanel1.Font, numBrush, cellRect, stringFormat);
+                    }
                 }
             }
 
@@ -288,10 +322,128 @@ namespace COS1_GameOfLife
                     universe[x, y] = false;
                 }
             }
+            timer.Enabled = false;
 
+            generations = 0;
+
+            toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
 
             graphicsPanel1.Invalidate();
             
+        }
+
+        private void colorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ColorDialog dlg = new ColorDialog();
+
+            dlg.Color = numColor;
+
+            if(DialogResult.OK == dlg.ShowDialog())
+            {
+                numColor = dlg.Color;
+            }
+
+            graphicsPanel1.Invalidate();
+        }
+
+        private void modalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+            ModalDialog dlg = new ModalDialog();
+
+
+            dlg.Interval = timer.Interval;
+            dlg.UniverseWidth = universe.GetLength(0);
+            dlg.UniverseHeight = universe.GetLength(1);
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                timer.Interval = dlg.Interval;
+                universe = new bool[dlg.UniverseWidth, dlg.UniverseHeight];
+                scratchPad = new bool[dlg.UniverseWidth, dlg.UniverseHeight];
+
+                graphicsPanel1.Invalidate();
+            }
+        }
+
+        private void backColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ColorDialog dlg = new ColorDialog();
+
+            dlg.Color = graphicsPanel1.BackColor;
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                graphicsPanel1.BackColor = dlg.Color;
+            }
+
+            graphicsPanel1.Invalidate();
+        }
+
+        private void gridColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(gridToolStripMenuItem.CheckState == CheckState.Checked)
+            {
+                ColorDialog dlg = new ColorDialog();
+
+                dlg.Color = gridColor;
+
+                if (DialogResult.OK == dlg.ShowDialog())
+                {
+                    gridColor = dlg.Color;
+                }
+
+                graphicsPanel1.Invalidate();
+            }
+        }
+
+        private void cellColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ColorDialog dlg = new ColorDialog();
+
+            dlg.Color = cellColor;
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                cellColor = dlg.Color;
+            }
+
+            graphicsPanel1.Invalidate();
+        }
+
+        private void gridToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(gridToolStripMenuItem.CheckState == CheckState.Checked)
+            {
+                gridToolStripMenuItem.CheckState = CheckState.Unchecked;
+                gridColor = graphicsPanel1.BackColor;
+            }
+            else
+            {
+                gridToolStripMenuItem.CheckState = CheckState.Checked;
+                gridColor = Color.Black;
+            }
+
+            graphicsPanel1.Invalidate();
+        }
+
+        private void neighborCountToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(neighborCountToolStripMenuItem.CheckState == CheckState.Checked)
+            {
+                neighborCountToolStripMenuItem.CheckState = CheckState.Unchecked;
+            } else
+            {
+                neighborCountToolStripMenuItem.CheckState = CheckState.Checked;
+            }
+
+            NextGeneration();
+
+            generations = 0;
+
+            toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
+
+            graphicsPanel1.Invalidate();
         }
     }
 }
