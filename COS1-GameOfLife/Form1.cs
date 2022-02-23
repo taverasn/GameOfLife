@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -12,6 +13,7 @@ namespace COS1_GameOfLife
 {
     public partial class Form1 : Form
     {
+        int seed = 135321;
         Color numColor = Color.Red;
         // The universe array
         bool[,] universe = new bool[30, 30];
@@ -31,10 +33,22 @@ namespace COS1_GameOfLife
         {
             InitializeComponent();
 
+            graphicsPanel1.BackColor = Properties.Settings.Default.PanelColor;
+            gridColor = Properties.Settings.Default.GridColor;
+            cellColor = Properties.Settings.Default.CellColor;
+            numColor = Properties.Settings.Default.NumColor;
+            universe = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            scratchPad = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            timer.Interval = Properties.Settings.Default.Interval;
+
+
+
             // Setup the timer
-            timer.Interval = 100; // milliseconds
             timer.Tick += Timer_Tick;
             timer.Enabled = false; // start timer running
+
+            // Update status strip time interval
+            toolStripStatusLabelInterval.Text = "Interval = " + timer.Interval.ToString();
         }
 
         // Calculate the next generation of cells
@@ -48,12 +62,19 @@ namespace COS1_GameOfLife
                 }
             }
 
-            int livingNeighbors;
+            int livingNeighbors = 0;
             for (int y = 0; y < universe.GetLength(1); y++)
             {
                 for (int x = 0; x < universe.GetLength(0); x++)
                 {
-                    livingNeighbors = CountNeighborsFinite(x, y);
+                    if(finiteToolStripMenuItem.CheckState == CheckState.Checked)
+                    {
+                        livingNeighbors = CountNeighborsFinite(x, y);
+                    }
+                    else if(toroidalToolStripMenuItem.CheckState == CheckState.Checked)
+                    {
+                        livingNeighbors = CountNeighborsToroidal(x, y);
+                    }
                     if(universe[x, y] == true)
                     {
                         if (livingNeighbors < 2)
@@ -84,27 +105,13 @@ namespace COS1_GameOfLife
             universe = scratchPad;
             scratchPad = temp;
 
+            CountLivingCells();
                                          
             // Increment generation count
             generations++;
 
             // Update status strip generations
             toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
-
-            // Update statues strip livingCells
-            int livingCells = 0;
-            for (int y = 0; y < scratchPad.GetLength(1); y++)
-            {
-                for (int x = 0; x < scratchPad.GetLength(0); x++)
-                {
-                    if(universe[x, y] == true)
-                    {
-                        livingCells++;
-                    }
-                }
-            }
-
-            toolStripStatusLabelLivingCells.Text = "Living Cells = " + livingCells.ToString();
 
             // Invalidate Graphics Panel
             graphicsPanel1.Invalidate();
@@ -116,11 +123,75 @@ namespace COS1_GameOfLife
             NextGeneration();
         }
 
-        private void graphicsPanel2_Paint(object sender, PaintEventArgs e)
+        private void CountLivingCells()
         {
-               
+            // Update status strip livingCells
+            int livingCells = 0;
+            for (int y = 0; y < scratchPad.GetLength(1); y++)
+            {
+                for (int x = 0; x < scratchPad.GetLength(0); x++)
+                {
+                    if (universe[x, y] == true)
+                    {
+                        livingCells++;
+                    }
+                }
+            }
+
+            toolStripStatusLabelLivingCells.Text = "Living Cells = " + livingCells.ToString();
         }
-            private void graphicsPanel1_Paint(object sender, PaintEventArgs e)
+
+        private void Randomize()
+        {
+            Random rand = new Random();
+            for (int y = 0; y < universe.GetLength(1); y++)
+            {
+                for (int x = 0; x < universe.GetLength(0); x++)
+                {
+                    // Call Next
+                    int randomNum = rand.Next(0, 2);
+                    if(randomNum == 0)
+                    {
+                        universe[x, y] = false;
+                    }
+                    else
+                    {
+                        universe[x, y] = true;
+                    }
+                }
+            }
+
+            CountLivingCells();
+
+            graphicsPanel1.Invalidate();
+        }        
+        
+        private void RandomizeBySeed(int seed)
+        {
+            Random rand = new Random(seed);
+            for (int y = 0; y < universe.GetLength(1); y++)
+            {
+                for (int x = 0; x < universe.GetLength(0); x++)
+                {
+                    // Call Next
+                    int randomNum = rand.Next(0, 2);
+                    if (randomNum == 0)
+                    {
+                        universe[x, y] = false;
+                    }
+                    else
+                    {
+                        universe[x, y] = true;
+                    }
+                }
+            }
+
+            CountLivingCells();
+
+            graphicsPanel1.Invalidate();
+        }
+
+        private void graphicsPanel1_Paint(object sender, PaintEventArgs e)
         {
             // Calculate the width and height of each cell in pixels
             // CELL WIDTH = WINDOW WIDTH / NUMBER OF CELLS IN X
@@ -130,6 +201,7 @@ namespace COS1_GameOfLife
 
             // A Pen for drawing the grid lines (color, width)
             Pen gridPen = new Pen(gridColor, 1);
+            Pen gridPen2 = new Pen(gridColor, 5);
 
             // A Brush for filling living cells interiors (color)
             Brush cellBrush = new SolidBrush(cellColor);
@@ -156,14 +228,13 @@ namespace COS1_GameOfLife
                     // Outline the cell with a pen
                     e.Graphics.DrawRectangle(gridPen, cellRect.X, cellRect.Y, cellRect.Width, cellRect.Height);
 
-
-                    if(neighborCountToolStripMenuItem.CheckState == CheckState.Checked)
+                    int neighbors = CountNeighborsFinite(x, y);
+                    if (neighborCountToolStripMenuItem.CheckState == CheckState.Checked && neighbors != 0)
                     {
                         StringFormat stringFormat = new StringFormat();
                         stringFormat.Alignment = StringAlignment.Center;
                         stringFormat.LineAlignment = StringAlignment.Center;
 
-                        int neighbors = CountNeighborsFinite(x, y);
 
                         Brush numBrush = new SolidBrush(numColor);
 
@@ -293,11 +364,6 @@ namespace COS1_GameOfLife
             this.Close();
         }
 
-        private void toolStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
-
-        }
-
         private void toolStripButton1_Click(object sender, EventArgs e)
         {
             timer.Enabled = true;
@@ -327,6 +393,8 @@ namespace COS1_GameOfLife
             generations = 0;
 
             toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
+
+            CountLivingCells();
 
             graphicsPanel1.Invalidate();
             
@@ -361,6 +429,8 @@ namespace COS1_GameOfLife
                 timer.Interval = dlg.Interval;
                 universe = new bool[dlg.UniverseWidth, dlg.UniverseHeight];
                 scratchPad = new bool[dlg.UniverseWidth, dlg.UniverseHeight];
+
+                CountLivingCells();
 
                 graphicsPanel1.Invalidate();
             }
@@ -444,6 +514,235 @@ namespace COS1_GameOfLife
             toolStripStatusLabelGenerations.Text = "Generations = " + generations.ToString();
 
             graphicsPanel1.Invalidate();
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            //Update Property
+            Properties.Settings.Default.PanelColor = graphicsPanel1.BackColor;
+            Properties.Settings.Default.GridColor = gridColor;
+            Properties.Settings.Default.CellColor = cellColor;
+            Properties.Settings.Default.NumColor = numColor;
+            Properties.Settings.Default.Width = universe.GetLength(0);
+            Properties.Settings.Default.Height = universe.GetLength(1);
+            Properties.Settings.Default.Interval = timer.Interval;
+
+            Properties.Settings.Default.Save();
+        }
+
+        private void resetToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.Reset();
+
+            // Reading the property
+            graphicsPanel1.BackColor = Properties.Settings.Default.PanelColor;
+            gridColor = Properties.Settings.Default.GridColor;
+            cellColor = Properties.Settings.Default.CellColor;
+            numColor = Properties.Settings.Default.NumColor;
+            universe = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            scratchPad = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            Properties.Settings.Default.Interval = timer.Interval;
+        }
+
+        private void reloadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.Reload();
+
+            // Reading the property
+            graphicsPanel1.BackColor = Properties.Settings.Default.PanelColor;
+            gridColor = Properties.Settings.Default.GridColor;
+            cellColor = Properties.Settings.Default.CellColor;
+            numColor = Properties.Settings.Default.NumColor;
+            universe = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            scratchPad = new bool[Properties.Settings.Default.Width, Properties.Settings.Default.Height];
+            Properties.Settings.Default.Interval = timer.Interval;
+        }
+
+        private void timeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Randomize();
+        }
+
+        private void seedToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SeedDialog dlg = new SeedDialog();
+
+
+            dlg.Seed = seed;
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                seed = dlg.Seed;
+
+                RandomizeBySeed(seed);
+
+                graphicsPanel1.Invalidate();
+            }
+        }
+
+        private void fromCurrentSeedToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RandomizeBySeed(seed);
+        }
+
+        private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog dlg = new SaveFileDialog();
+            dlg.Filter = "All Files|*.*|Cells|*.cells";
+            dlg.FilterIndex = 2; dlg.DefaultExt = "cells";
+
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                StreamWriter writer = new StreamWriter(dlg.FileName);
+
+                // Write any comments you want to include first.
+                // Prefix all comment strings with an exclamation point.
+                // Use WriteLine to write the strings to the file. 
+                // It appends a CRLF for you.
+                writer.WriteLine("!This is my comment.");
+
+                // Iterate through the universe one row at a time.
+                for (int y = 0; y < universe.GetLength(1); y++)
+                {
+                    // Create a string to represent the current row.
+                    String currentRow = string.Empty;
+
+                    // Iterate through the current row one cell at a time.
+                    for (int x = 0; x < universe.GetLength(0); x++)
+                    {
+                        if(universe[x, y] == true)
+                        {
+                            currentRow += "O";
+                        } else if(universe[x, y] == false)
+                        {
+                            currentRow += ".";
+                        }
+                    }
+
+                    writer.WriteLine(currentRow);
+                }
+
+                // After all rows and columns have been written then close the file.
+                writer.Close();
+            }
+        }
+
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Filter = "All Files|*.*|Cells|*.cells";
+            dlg.FilterIndex = 2;
+
+            if (DialogResult.OK == dlg.ShowDialog())
+            {
+                StreamReader reader = new StreamReader(dlg.FileName);
+
+                // Create a couple variables to calculate the width and height
+                // of the data in the file.
+                int maxWidth = 0;
+                int maxHeight = 0;
+
+                // Iterate through the file once to get its size.
+                while (!reader.EndOfStream)
+                {
+                    // Read one row at a time.
+                    string row = reader.ReadLine();
+
+                    // If the row begins with '!' then it is a comment
+                    // and should be ignored.
+                    if(row.Substring(0,1) == "!")
+                    {
+                        continue;
+                    }
+
+                    // If the row is not a comment then it is a row of cells.
+                    // Increment the maxHeight variable for each row read.
+                    maxHeight++;
+
+                    // Get the length of the current row string
+                    // and adjust the maxWidth variable if necessary.
+                    maxWidth = row.Length;
+                }
+
+                // Resize the current universe and scratchPad
+                // to the width and height of the file calculated above.
+                universe = new bool[maxWidth, maxHeight];
+                scratchPad = new bool[maxWidth, maxHeight];
+
+                // Reset the file pointer back to the beginning of the file.
+                reader.BaseStream.Seek(0, SeekOrigin.Begin);
+
+                // Iterate through the file again, this time reading in the cells.
+                int yPos = 0;
+                while (!reader.EndOfStream)
+                {
+                    // Read one row at a time.
+                    string row = reader.ReadLine();
+                    
+                    // If the row begins with '!' then
+                    // it is a comment and should be ignored.
+                    if (row.Substring(0, 1) == "!")
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        // If the row is not a comment then 
+                        // it is a row of cells and needs to be iterated through.
+                        for (int xPos = 0; xPos < row.Length; xPos++)
+                        {
+                            // If row[xPos] is a 'O' (capital O) then
+                            // set the corresponding cell in the universe to alive.
+                            if(row[xPos] == 'O')
+                            {
+                                universe[xPos, yPos] = true;
+                            }
+                            else if(row[xPos] == '.')
+                            {
+                                universe[xPos, yPos] = false;
+                            }
+                            // If row[xPos] is a '.' (period) then
+                            // set the corresponding cell in the universe to dead.
+                        }
+                        yPos++;
+                    }
+                }
+
+                // Close the file.
+                reader.Close();
+
+                CountLivingCells();
+
+                graphicsPanel1.Invalidate();
+            }
+        }
+
+        private void toroidalToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(toroidalToolStripMenuItem.CheckState == CheckState.Checked)
+            {
+                toroidalToolStripMenuItem.CheckState = CheckState.Unchecked;
+                finiteToolStripMenuItem.CheckState = CheckState.Checked;
+            } else
+            {
+                toroidalToolStripMenuItem.CheckState = CheckState.Checked;
+                finiteToolStripMenuItem.CheckState = CheckState.Unchecked;
+            }
+        }
+
+        private void finiteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (finiteToolStripMenuItem.CheckState == CheckState.Checked)
+            {
+                finiteToolStripMenuItem.CheckState = CheckState.Unchecked;
+                toroidalToolStripMenuItem.CheckState = CheckState.Checked;
+            }
+            else
+            {
+                finiteToolStripMenuItem.CheckState = CheckState.Checked;
+                toroidalToolStripMenuItem.CheckState = CheckState.Unchecked;
+            }
         }
     }
 }
